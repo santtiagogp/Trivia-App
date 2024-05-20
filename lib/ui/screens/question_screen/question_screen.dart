@@ -1,9 +1,12 @@
+import 'dart:math';
+
 import 'package:audioplayers/audioplayers.dart';
+import 'package:confetti/confetti.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../notifiers/questions_notifier/questions_notifier.dart';
-import '../start_screen/start_screen.dart';
+import '../results_screen/results_screen.dart';
 
 class QuestionScreen extends StatefulWidget {
   const QuestionScreen({super.key});
@@ -18,6 +21,8 @@ class _QuestionScreenState extends State<QuestionScreen> with SingleTickerProvid
   bool timeCompleted = false;
   int? selectedAnswerIndex;
   bool? isCorrect;
+  bool confettiIsPlaying = false;
+  late ConfettiController _confettiController;
 
   static late AudioPlayer _player;
 
@@ -27,6 +32,7 @@ class _QuestionScreenState extends State<QuestionScreen> with SingleTickerProvid
       context.read<QuestionsNotifier>().setCurrentAnswers();
     });
     AudioCache.instance = AudioCache(prefix: '');
+    _confettiController = ConfettiController();
     _player = AudioPlayer();
     playAudio();
     _controller = AnimationController(
@@ -36,6 +42,15 @@ class _QuestionScreenState extends State<QuestionScreen> with SingleTickerProvid
       if( status == AnimationStatus.completed ) {
         timeCompleted = true;
         stopAudio();
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) {
+              context.read<QuestionsNotifier>().moveToNextQuestion();
+              return const QuestionScreen();
+            },
+          )
+        );
       }
     },)..addListener(() {
       setState((){});
@@ -68,95 +83,114 @@ class _QuestionScreenState extends State<QuestionScreen> with SingleTickerProvid
           automaticallyImplyLeading: false,
           centerTitle: true,
         ),
-        body: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        body: Stack(
+          alignment: Alignment.topCenter,
           children: [
-            LinearProgressIndicator(
-              backgroundColor: Colors.grey.shade300,
-              color: Colors.pink.shade100,
-              value: _controller.value,
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              child: Text(qProvider.questions[qProvider.currentQuestion - 1].question,
-                style: const TextStyle(
-                  fontSize: 25,
-              ), textAlign: TextAlign.center,),
-            ),
-            SizedBox(
-              height: MediaQuery.of(context).size.height * 0.4,
-              width: MediaQuery.of(context).size.width * 0.8,
-              child: GridView.builder(
-                itemCount: qProvider.currentAnswers.length,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  childAspectRatio: (1 / .8)
+            Column(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                LinearProgressIndicator(
+                  backgroundColor: Colors.grey.shade300,
+                  color: Colors.pink.shade100,
+                  value: _controller.value,
                 ),
-                itemBuilder: (context, index) {
-                  Color tileColor = Colors.purple.shade200;
-                  if (selectedAnswerIndex != null) {
-                    if (selectedAnswerIndex == index) {
-                      tileColor = isCorrect == true ? Colors.green : Colors.red;
-                    }
-                  }
-                  return TextButton(
-                    style: ButtonStyle(
-                      padding: WidgetStateProperty.all(EdgeInsets.zero)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: Text(qProvider.questions[qProvider.currentQuestion - 1].question,
+                    style: const TextStyle(
+                      fontSize: 25,
+                  ), textAlign: TextAlign.center,),
+                ),
+                SizedBox(
+                  height: MediaQuery.of(context).size.height * 0.4,
+                  width: MediaQuery.of(context).size.width * 0.8,
+                  child: GridView.builder(
+                    itemCount: qProvider.currentAnswers.length,
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      childAspectRatio: (1 / .8)
                     ),
-                    onPressed: selectedAnswerIndex == null ? () {
-                      _controller.stop();
-                      stopAudio();
-                      setState(() {
-                        selectedAnswerIndex = index;
-                        isCorrect = qProvider.currentAnswers[index] == qProvider.currentCorrectAnswer;
-                      });
-
-                      Future.delayed(const Duration(milliseconds: 1700), () {
-                        if (qProvider.isLastQuestion) {
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) {
-                                qProvider.resetAllValues();
-                                return const StartScreen();
-                              },
-                            )
-                          );
-                        } else {
-                          setState(() {
-                            selectedAnswerIndex = null;
-                            isCorrect = null;
-                          });
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) {
-                                qProvider.moveToNextQuestion();
-                                return const QuestionScreen();
-                              },
-                            )
-                          );
+                    itemBuilder: (context, index) {
+                      Color tileColor = Colors.purple.shade200;
+                      if (selectedAnswerIndex != null) {
+                        if (selectedAnswerIndex == index) {
+                          tileColor = isCorrect == true ? Colors.green : Colors.red;
                         }
-                      });
-                    } : null,
-                    child: Container(
-                      margin: const EdgeInsets.all(5),
-                      decoration: BoxDecoration(
-                        color: tileColor,
-                        borderRadius: BorderRadius.circular(25),
-                      ),
-                      child: Center(
-                        child: Text(
-                          qProvider.currentAnswers[index],
-                          style: const TextStyle(
-                            color: Colors.white
+                      }
+                      return TextButton(
+                        style: ButtonStyle(
+                          padding: WidgetStateProperty.all(EdgeInsets.zero)
+                        ),
+                        onPressed: selectedAnswerIndex == null ? () {
+                          _controller.stop();
+                          stopAudio();
+                          setState(() {
+                            selectedAnswerIndex = index;
+                            isCorrect = qProvider.currentAnswers[index] == qProvider.currentCorrectAnswer;
+                          });
+
+                          if (isCorrect == true) {
+                            qProvider.addCorrectAnswers();
+                            qProvider.addPoints();
+                            _confettiController.play();
+                          } else {
+                            qProvider.addWrongAnswers();
+                          }
+            
+                          Future.delayed(const Duration(milliseconds: 3000), () {
+                            if (qProvider.isLastQuestion) {
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) {
+                                    return const ResultsScreen();
+                                  },
+                                )
+                              );
+                            } else {
+                              setState(() {
+                                selectedAnswerIndex = null;
+                                isCorrect = null;
+                              });
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) {
+                                    qProvider.moveToNextQuestion();
+                                    return const QuestionScreen();
+                                  },
+                                )
+                              );
+                            }
+                          });
+                        } : null,
+                        child: Container(
+                          margin: const EdgeInsets.all(5),
+                          decoration: BoxDecoration(
+                            color: tileColor,
+                            borderRadius: BorderRadius.circular(25),
+                          ),
+                          child: Center(
+                            child: Text(
+                              qProvider.currentAnswers[index],
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Colors.white,
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                    ),
-                  );
-                }
-              )
+                      );
+                    }
+                  )
+                )
+              ],
+            ),
+            ConfettiWidget(
+              confettiController: _confettiController,
+              blastDirection: pi / 2,
+              numberOfParticles: 20,
+              blastDirectionality: BlastDirectionality.explosive,
             )
           ],
         ),
@@ -166,6 +200,7 @@ class _QuestionScreenState extends State<QuestionScreen> with SingleTickerProvid
 
   @override
   void dispose() {
+    _confettiController.dispose();
     _controller.dispose();
     super.dispose();
   }

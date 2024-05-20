@@ -14,11 +14,18 @@ class QuestionsNotifier extends ChangeNotifier {
   int _currentQuestionIndex = 0;
   bool _lastQuestion = false;
 
+  int _correctAnswers = 0;
+  int _wrongAnswers = 0;
+  int _finalScore = 0;
+
   List<Result> get questions => _questions;
   bool get isLastQuestion => _lastQuestion;
   int get currentQuestion => _currentQuestionIndex + 1;
   List<String> get currentAnswers => _currentAnswers;
   String get currentCorrectAnswer => _currentCorrectAnswer;
+  int get correctAnswers => _correctAnswers;
+  int get wrongAnswers => _wrongAnswers;
+  int get finalScore => _finalScore;
 
   setCurrentAnswers() {
 
@@ -74,6 +81,21 @@ class QuestionsNotifier extends ChangeNotifier {
     _currentCorrectAnswer = '';
     _currentQuestionIndex = 0;
     _lastQuestion = false;
+  }
+
+  void addPoints() {
+    _finalScore += 100;
+    notifyListeners();
+  }
+
+  void addCorrectAnswers() => _correctAnswers++;
+  
+  void addWrongAnswers() => _wrongAnswers++;
+
+  void resetScore() {
+    _finalScore = 0;
+    _correctAnswers = 0;
+    _wrongAnswers = 0;
   }
 
 }
