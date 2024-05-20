@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../notifiers/questions_notifier/questions_notifier.dart';
+import '../start_screen/start_screen.dart';
 
 class QuestionScreen extends StatefulWidget {
   const QuestionScreen({super.key});
@@ -15,6 +16,8 @@ class _QuestionScreenState extends State<QuestionScreen> with SingleTickerProvid
 
   late AnimationController _controller;
   bool timeCompleted = false;
+  int? selectedAnswerIndex;
+  bool? isCorrect;
 
   static late AudioPlayer _player;
 
@@ -55,7 +58,7 @@ class _QuestionScreenState extends State<QuestionScreen> with SingleTickerProvid
   @override
   Widget build(BuildContext context) {
 
-    final qProvider = Provider.of<QuestionsNotifier>(context, listen: true);
+    final qProvider = Provider.of<QuestionsNotifier>(context, listen: false);
 
     return PopScope(
       canPop: false,
@@ -90,17 +93,56 @@ class _QuestionScreenState extends State<QuestionScreen> with SingleTickerProvid
                   childAspectRatio: (1 / .8)
                 ),
                 itemBuilder: (context, index) {
+                  Color tileColor = Colors.purple.shade200;
+                  if (selectedAnswerIndex != null) {
+                    if (selectedAnswerIndex == index) {
+                      tileColor = isCorrect == true ? Colors.green : Colors.red;
+                    }
+                  }
                   return TextButton(
                     style: ButtonStyle(
                       padding: WidgetStateProperty.all(EdgeInsets.zero)
                     ),
-                    onPressed: () {
-                      
-                    },
+                    onPressed: selectedAnswerIndex == null ? () {
+                      _controller.stop();
+                      stopAudio();
+                      setState(() {
+                        selectedAnswerIndex = index;
+                        isCorrect = qProvider.currentAnswers[index] == qProvider.currentCorrectAnswer;
+                      });
+
+                      Future.delayed(const Duration(milliseconds: 1700), () {
+                        if (qProvider.isLastQuestion) {
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) {
+                                qProvider.resetAllValues();
+                                return const StartScreen();
+                              },
+                            )
+                          );
+                        } else {
+                          setState(() {
+                            selectedAnswerIndex = null;
+                            isCorrect = null;
+                          });
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) {
+                                qProvider.moveToNextQuestion();
+                                return const QuestionScreen();
+                              },
+                            )
+                          );
+                        }
+                      });
+                    } : null,
                     child: Container(
                       margin: const EdgeInsets.all(5),
                       decoration: BoxDecoration(
-                        color: Colors.purple.shade200,
+                        color: tileColor,
                         borderRadius: BorderRadius.circular(25),
                       ),
                       child: Center(

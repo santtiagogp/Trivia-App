@@ -36,8 +36,6 @@ class QuestionsNotifier extends ChangeNotifier {
     answers.shuffle();
 
     _currentAnswers = answers;
-
-    notifyListeners();
   }
 
 
@@ -60,12 +58,14 @@ class QuestionsNotifier extends ChangeNotifier {
   void moveToNextQuestion() {
     if (_currentQuestionIndex < _questions.length - 1) {
       _currentQuestionIndex++;
-      _lastQuestion = false;
-      notifyListeners();
+      _lastQuestion = _currentQuestionIndex == _questions.length - 1;
+      setCurrentAnswers();
     } else {
       _lastQuestion = true;
-      notifyListeners();
     }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      notifyListeners();
+    });
   }
 
   void resetAllValues() {
@@ -74,7 +74,6 @@ class QuestionsNotifier extends ChangeNotifier {
     _currentCorrectAnswer = '';
     _currentQuestionIndex = 0;
     _lastQuestion = false;
-    notifyListeners();
   }
 
 }
