@@ -90,6 +90,7 @@ class _QuestionScreenState extends State<QuestionScreen> with SingleTickerProvid
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 LinearProgressIndicator(
+                  minHeight: 10,
                   backgroundColor: Colors.grey.shade300,
                   color: Colors.pink.shade100,
                   value: _controller.value,
